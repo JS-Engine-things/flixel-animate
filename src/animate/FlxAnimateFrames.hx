@@ -240,7 +240,7 @@ class FlxAnimateFrames extends FlxAtlasFrames
 			// - maru
 			for (spritemap in cast(cachedAtlas.parent, FlxAnimateSpritemapCollection).spritemaps)
 			{
-				if (#if (flixel >= "5.6.0") spritemap.isDestroyed #else spritemap.shader == null #end)
+				if (spritemap.isDestroyed)
 				{
 					isAtlasDestroyed = true;
 					break;
@@ -264,8 +264,9 @@ class FlxAnimateFrames extends FlxAtlasFrames
 			if (isAtlasDestroyed)
 			{
 				FlxG.log.warn('Texture Atlas with the key "$key" was previously cached, but incomplete. Was it incorrectly destroyed?');
-				cachedAtlas.destroy();
 				_cachedAtlases.remove(key);
+				if (cachedAtlas.parent.useCount <= 0)
+					cachedAtlas.destroy();
 			}
 			else
 			{
@@ -300,10 +301,19 @@ class FlxAnimateFrames extends FlxAtlasFrames
 		if (FlxG.bitmap.checkCache(path))
 			return FlxG.bitmap.get(path);
 
-		return FlxG.bitmap.add(FlxAnimateAssets.getBitmapData(path), false, path);
+		if (FlxG.bitmap.checkCache(key))
+		{
+			var graphic = FlxG.bitmap.get(key);
+			if (graphic.bitmap != null && graphic.bitmap.width > 0)
+				return graphic;
+
+			FlxG.bitmap.removeByKey(key);
+		}
+
+		return FlxG.bitmap.add(FlxAnimateAssets.getBitmapData(path), false, key);
 	}
 
-	var _symbolDictionary:Null< #if flash Array<SymbolJson> #else Vector<SymbolJson> #end>;
+	var _symbolDictionary:Null<Vector<SymbolJson>>;
 	var _isInlined:Bool;
 	var _libraryList:Array<String>;
 	var _settings:Null<FlxAnimateSettings>;
@@ -408,13 +418,7 @@ class FlxAnimateFrames extends FlxAtlasFrames
 				var size = FlxPoint.get(sprite.w, sprite.h);
 				atlas.addAtlasFrame(rect, size, FlxPoint.get(), sprite.name, sprite.rotated ? ANGLE_NEG_90 : ANGLE_0);
 			}
-
-			#if (flixel >= "5.4.0")
 			frames.addAtlas(atlas);
-			#else
-			for (frame in atlas.frames)
-				frames.pushFrame(frame);
-			#end
 
 			spritemapCollection.addSpritemap(graphic);
 		}
@@ -454,7 +458,6 @@ class FlxAnimateFrames extends FlxAtlasFrames
 	@:allow(animate.FlxAnimateController)
 	var addedCollections:Array<FlxAnimateFrames>;
 
-	#if (flixel >= "5.4.0")
 	override function addAtlas(collection:FlxAtlasFrames, overwriteHash:Bool = false):FlxAtlasFrames
 	{
 		if (collection is FlxAnimateFrames)
@@ -528,7 +531,6 @@ class FlxAnimateFrames extends FlxAtlasFrames
 
 		return atlasB.addAtlas(atlasA);
 	}
-	#end
 
 	var checkedDirtySymbols:Array<String> = [];
 
@@ -584,7 +586,7 @@ class FlxAnimateFrames extends FlxAtlasFrames
 
 	override function destroy():Void
 	{
-		if (_cachedAtlases.exists(path))
+		if (_cachedAtlases.get(path) == this)
 			_cachedAtlases.remove(path);
 
 		super.destroy();
@@ -639,20 +641,11 @@ class FlxAnimateSpritemapCollection extends FlxGraphic
 		parentFrames = FlxDestroyUtil.destroy(parentFrames);
 	}
 
-	#if (flixel >= "5.4.0")
 	override function checkUseCount():Void
 	{
 		if (useCount <= 0 && destroyOnNoUse && !persist)
 			destroySpritemaps();
 	}
-	#else
-	override function set_useCount(value:Int):Int
-	{
-		if (value <= 0 && _destroyOnNoUse && !persist)
-			destroySpritemaps();
-		return _useCount = value;
-	}
-	#end
 
 	override function destroy():Void
 	{
