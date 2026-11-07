@@ -296,10 +296,10 @@ class FlxAnimateFrames extends FlxAtlasFrames
 		return list.filter(filter);
 	}
 
-	static function getGraphic(path:String):FlxGraphic
+	static function getGraphic(path:String, ?key:String):FlxGraphic
 	{
-		if (FlxG.bitmap.checkCache(path))
-			return FlxG.bitmap.get(path);
+		if (key == null)
+			key = path;
 
 		if (FlxG.bitmap.checkCache(key))
 		{
